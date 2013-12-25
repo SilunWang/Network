@@ -69,6 +69,7 @@ configuration BaseStationC {
 implementation {
   components MainC, BaseStationP, LedsC;
   components ActiveMessageC as Radio, SerialActiveMessageC as Serial;
+  components new TimerMilliC() as Timer;
   
   MainC.Boot <- BaseStationP;
 
@@ -82,9 +83,9 @@ implementation {
   
   BaseStationP.RadioSend -> Radio;
   BaseStationP.RadioReceive -> Radio.Receive;
-  BaseStationP.RadioSnoop -> Radio.Snoop;
   BaseStationP.RadioPacket -> Radio;
   BaseStationP.RadioAMPacket -> Radio;
   
+  BaseStationP.Timer -> Timer;
   BaseStationP.Leds -> LedsC;
 }

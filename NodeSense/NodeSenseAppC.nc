@@ -21,13 +21,13 @@ implementation
 {
   components NodeSenseC, MainC, ActiveMessageC, LedsC,
     new TimerMilliC(), 
-    new AMSenderC(AM_NODESENSEMSG), new AMReceiverC(AM_NODESENSEMSG),
     new SensirionSht11C(), new HamamatsuS1087ParC();   
 
   NodeSenseC.Boot -> MainC;
   NodeSenseC.RadioControl -> ActiveMessageC;
-  NodeSenseC.AMSend -> AMSenderC;
-  NodeSenseC.Receive -> AMReceiverC;
+  NodeSenseC.AMPacket -> ActiveMessageC;
+  NodeSenseC.NodeAMSend -> ActiveMessageC;
+  NodeSenseC.NodeReceive -> ActiveMessageC.Receive;
   NodeSenseC.Timer -> TimerMilliC;
   NodeSenseC.Leds -> LedsC;
   NodeSenseC.readTemp -> SensirionSht11C.Temperature;
