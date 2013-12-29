@@ -27,6 +27,7 @@ implementation
   NodeSenseC.RadioControl -> ActiveMessageC;
   NodeSenseC.AMPacket -> ActiveMessageC;
   NodeSenseC.NodeAMSend -> ActiveMessageC;
+  NodeSenseC.RadioPacket -> ActiveMessageC;
   NodeSenseC.NodeReceive -> ActiveMessageC.Receive;
   NodeSenseC.Timer -> TimerMilliC;
   NodeSenseC.Leds -> LedsC;

@@ -19,14 +19,14 @@ enum {
   NREADINGS = 1,
 
   /* Default sampling period. */
-  DEFAULT_INTERVAL = 400,
-
+  DEFAULT_INTERVAL = 500,
+  RADIO_QUEUE_LEN = 80,
 
   AM_NODESENSEMSG = 0x1,
   AM_NODERESENDMSG = 0x2,
   AM_SENSEINTERVALMSG = 0x3,
 
-  MAX_QUEUESIZE = 108
+  MAX_QUEUESIZE = 360
 };
 
 typedef nx_struct nodesensemsg {

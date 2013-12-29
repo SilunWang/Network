@@ -3,7 +3,7 @@ BUILD_EXTRA_DEPS += NodeSenseMsg.class
 
 CFLAGS += -I$(TOSDIR)/lib/T2Hack
 CFLAGS += -DCC2420_DEF_CHANNEL=19
-CFLAGS += -DCC2420_DEF_RFPOWER=3
+CFLAGS += -DCC2420_DEF_RFPOWER=10
 
 NodeSenseMsg.class: NodeSenseMsg.java
 	javac -target 1.4 -source 1.4 *.java

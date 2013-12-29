@@ -1,47 +1,3 @@
-// $Id$
-
-/*									tab:4
- * "Copyright (c) 2000-2005 The Regents of the University  of California.  
- * All rights reserved.
- *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation for any purpose, without fee, and without written agreement is
- * hereby granted, provided that the above copyright notice, the following
- * two paragraphs and the author appear in all copies of this software.
- * 
- * IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
- * DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT
- * OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
- * CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
- * ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
- * PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS."
- *
- * Copyright (c) 2002-2005 Intel Corporation
- * All rights reserved.
- *
- * This file is distributed under the terms in the attached INTEL-LICENSE     
- * file. If you do not find these files, copies can be found by writing to
- * Intel Research Berkeley, 2150 Shattuck Avenue, Suite 1300, Berkeley, CA, 
- * 94704.  Attention:  Intel License Inquiry.
- */
-
-/*
- * @author Phil Buonadonna
- * @author Gilman Tolle
- * @author David Gay
- * Revision:	$Id$
- */
-  
-/* 
- * BaseStationP bridges packets between a serial channel and the radio.
- * Messages moving from serial to radio will be tagged with the group
- * ID compiled into the TOSBase, and messages moving from radio to
- * serial will be filtered by that same group id.
- */
 
 #include "AM.h"
 #include "Serial.h"
@@ -72,9 +28,9 @@ implementation
 {
   enum {
     UART_QUEUE_LEN = 12,
-    RADIO_QUEUE_LEN = 12,
+    RADIO_QUEUE_LEN = 50,
     SEQ_QUEUE_LEN = 10,
-    DROP_QUEUE_LEN = 50,
+    DROP_QUEUE_LEN = 200,
   };
 
   message_t  uartQueueBufs[UART_QUEUE_LEN];
@@ -95,11 +51,11 @@ implementation
   task void radioSendTask();
 
   void dropBlink() {
-    call Leds.led2Toggle();
+    //call Leds.led0Toggle();
   }
 
   void failBlink() {
-    call Leds.led2Toggle();
+    //call Leds.led0Toggle();
   }
 
   event void Boot.booted() {
@@ -128,7 +84,7 @@ implementation
 
     call RadioControl.start();
     call SerialControl.start();
-    call Timer.startPeriodic( 500 );
+    call Timer.startPeriodic( 1000 );
   }
 
   event void RadioControl.startDone(error_t error) {
@@ -190,7 +146,7 @@ implementation
     if (checkmsg(msg, payload, len))
       return receive(msg, payload, len);
     else 
-      return uartQueue[uartIn];
+      return msg;
   }
 
   message_t* receive(message_t *msg, void *payload, uint8_t len) {
@@ -220,7 +176,7 @@ implementation
   }
 
   bool checkmsg(message_t *msg, void *payload, uint8_t len) {
-    if (len == sizeof(nodesense_t)) {
+    if (call RadioAMPacket.type(msg) == AM_NODESENSEMSG) {
       nodesense_t* nsmpkt = (nodesense_t*)payload;
       if (seqQueue[nsmpkt->id] == 0) {
         seqQueue[nsmpkt->id] = nsmpkt->SeqNo;
@@ -228,7 +184,7 @@ implementation
       else if (nsmpkt->SeqNo == 1) {
         seqQueue[nsmpkt->id] = nsmpkt->SeqNo;
       }
-      else if (nsmpkt->SeqNo > seqQueue[nsmpkt->id] && nsmpkt->SeqNo - seqQueue[nsmpkt->id] > RADIO_QUEUE_LEN) {
+      else if (nsmpkt->SeqNo > seqQueue[nsmpkt->id] && nsmpkt->SeqNo - seqQueue[nsmpkt->id] > DROP_QUEUE_LEN) {
         seqQueue[nsmpkt->id] = nsmpkt->SeqNo;
       }
       else if (nsmpkt->SeqNo < seqQueue[nsmpkt->id] && seqQueue[nsmpkt->id] - nsmpkt->SeqNo > 5*DROP_QUEUE_LEN) {
@@ -239,7 +195,7 @@ implementation
         uint8_t i;
         atomic {
           for (i = 0; i < DROP_QUEUE_LEN; i++) {
-            if (dropQueue[i].SeqNo == nsmpkt->SeqNo) {
+            if (dropQueue[i].SeqNo == nsmpkt->SeqNo && dropQueue[i].id == nsmpkt->id) {
               dropQueue[i].SeqNo = 0;
               flag = TRUE;
             }
@@ -251,20 +207,21 @@ implementation
       else if (seqQueue[nsmpkt->id] < nsmpkt->SeqNo) {
         uint16_t seqno = seqQueue[nsmpkt->id];
         seqQueue[nsmpkt->id] = nsmpkt->SeqNo;
-        call Leds.led2Toggle();
         if (seqno + 1 < nsmpkt->SeqNo) {
           uint16_t i;
           for (i = 1; i < nsmpkt->SeqNo - seqno; i++) {
             atomic {
+              while(dropQueue[dropflag].SeqNo != 0)
+                dropflag = (dropflag + 1)%DROP_QUEUE_LEN;
+              dropQueue[dropflag].SeqNo = seqno + i;
+              dropQueue[dropflag].id = nsmpkt->id;
+              dropflag = (dropflag + 1)%DROP_QUEUE_LEN;
               if (!radioFull)
               {
                 message_t *pkt = &radioQueueBufs[radioIn];
                 noderesend_t* nrmpkt = (noderesend_t*)(call UartPacket.getPayload(pkt, sizeof(noderesend_t)));
                 nrmpkt->id = nsmpkt->id;
                 nrmpkt->SeqNo = seqno + i;
-                dropQueue[dropflag].SeqNo = nrmpkt->SeqNo;
-                dropQueue[dropflag].id = nrmpkt->id;
-                dropflag = (dropflag + 1)%DROP_QUEUE_LEN;
                 call UartPacket.setPayloadLength(pkt, sizeof(noderesend_t));
                 call UartAMPacket.setDestination(pkt, 1);
                 call UartAMPacket.setType(pkt, AM_NODERESENDMSG);
@@ -293,6 +250,7 @@ implementation
       atomic {
         for (i = 0; i < DROP_QUEUE_LEN; i++) {
           if (dropQueue[i].SeqNo == nsmpkt->SeqNo) {
+            call Leds.led0Toggle();
             dropQueue[i].SeqNo = 0;
           }
         }
@@ -399,7 +357,7 @@ implementation
     call RadioAMPacket.setSource(msg, source);
 
     if (call RadioSend.send[id](addr, msg, len) == SUCCESS)
-      call Leds.led0Toggle();
+      call Leds.led2Toggle();
     else
     {
       failBlink();

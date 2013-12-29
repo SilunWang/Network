@@ -11,9 +11,6 @@ import java.io.IOException;
 import net.tinyos.message.*;
 import net.tinyos.packet.*;
 import net.tinyos.util.*;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.*;
 
 public class NodeSense implements MessageListener {
 
@@ -26,24 +23,12 @@ public class NodeSense implements MessageListener {
 
   public void messageReceived(int to, Message message) {
     NodeSenseMsg msg = (NodeSenseMsg)message;
-
-    String resultStr = "";
-    resultStr += msg.get_id() + " ";
-    resultStr += msg.get_count() + " ";
-    resultStr += msg.get_temperature()[0] + " ";
-    resultStr += msg.get_humidity()[0] + " ";
-    resultStr += msg.get_illumination()[0] + " ";
-    resultStr += msg.get_curtime()[0] + "\n";
-
-    try {
-		FileOutputStream fout = new FileOutputStream("result.txt", true);
-		byte[] bytes = resultStr.getBytes();
-		fout.write(bytes);
-		fout.close();
-	}
-	catch (Exception e) {
-		e.printStackTrace();
-	}
+    System.out.print("ID: " + msg.get_id());
+    System.out.print(" No." + msg.get_count());
+    System.out.print(" temperature: " + msg.get_temperature()[0]);
+    System.out.print(" humidity: " + msg.get_humidity()[0]);
+    System.out.print(" illumination: " + msg.get_illumination()[0]);
+    System.out.println(" time: " + msg.get_curtime()[0]);
   }
   
   private static void usage() {
